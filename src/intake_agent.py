@@ -1,28 +1,13 @@
 import os
+import sys
 import anthropic
 from dotenv import load_dotenv
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from shared_prompts.prompts import INTAKE_PROMPT
+
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-
-INTAKE_PROMPT = """You are TABIB's Intake Agent. You receive raw WhatsApp messages from ASHA workers or PHC staff describing a patient's condition in plain language (Hindi, Telugu, or English).
-
-Your job is to extract and structure the information into a clean JSON object.
-
-Extract:
-- patient_age (number or null)
-- patient_sex (male/female/unknown)
-- symptoms (list of strings)
-- duration (how long symptoms have been present, string)
-- vitals (any mentioned: temperature, BP, pulse, SpO2 — as a dict, null if none)
-- pregnancy_status (yes/no/unknown)
-- known_conditions (list of any mentioned existing conditions)
-- raw_message (the original message)
-- language_detected (english/hindi/telugu/mixed)
-
-If information is missing, use null. Do not guess or infer beyond what is stated.
-
-Respond ONLY with valid JSON. No explanation, no preamble."""
 
 def run_intake(whatsapp_message: str) -> dict:
     """Takes raw WhatsApp message, returns structured patient JSON."""
