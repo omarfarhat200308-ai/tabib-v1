@@ -2,7 +2,7 @@ import os
 import anthropic
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 INTAKE_PROMPT = """You are TABIB's Intake Agent. You receive raw WhatsApp messages from ASHA workers or PHC staff describing a patient's condition in plain language (Hindi, Telugu, or English).

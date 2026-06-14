@@ -6,7 +6,7 @@ from intake_agent import run_intake
 from diagnostic_agent import run_diagnostic
 from triage_agent import run_triage
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 def run_tabib_pipeline(whatsapp_message: str, patient_id: str = None) -> str:
     if not patient_id:

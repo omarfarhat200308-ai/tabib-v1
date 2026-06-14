@@ -3,7 +3,7 @@ import json
 import anthropic
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 TRIAGE_PROMPT = """You are TABIB's Triage Agent. You receive patient intake and diagnostic assessment.

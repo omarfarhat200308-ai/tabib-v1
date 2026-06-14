@@ -4,7 +4,7 @@ from twilio.rest import Client
 from dotenv import load_dotenv
 from band_coordinator import run_tabib_pipeline
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 app = FastAPI(title="TABIB Diagnostic API")
 
