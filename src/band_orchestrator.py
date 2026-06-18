@@ -138,11 +138,66 @@ class BandOrchestrator:
     # Public interface
     # ------------------------------------------------------------------
 
+    def _find_room_with_agents(self) -> Optional[str]:
+        """Return the most recently updated Band room that has TDA as a participant.
+
+        Queries all rooms TIA belongs to (paginated), checks each for TDA
+        membership, and returns the most recently active match. Returns None
+        if no suitable room is found or if TDA is not configured.
+        """
+        if not self._tda_id:
+            return None
+
+        try:
+            all_rooms = []
+            page = 1
+            while True:
+                resp = self._client.agent_api_chats.list_agent_chats(
+                    page=page,
+                    page_size=100,
+                    request_options=DEFAULT_REQUEST_OPTIONS,
+                )
+                if resp and resp.data:
+                    all_rooms.extend(resp.data)
+                total_pages = getattr(getattr(resp, "metadata", None), "total_pages", None)
+                if total_pages is None or page >= total_pages:
+                    break
+                page += 1
+        except Exception as e:
+            logger.warning("[BandOrchestrator] Could not list agent chats: %s", e)
+            return None
+
+        # Most recently updated first
+        all_rooms.sort(key=lambda r: r.updated_at, reverse=True)
+
+        for room in all_rooms:
+            try:
+                parts_resp = self._client.agent_api_participants.list_agent_chat_participants(
+                    room.id,
+                    request_options=DEFAULT_REQUEST_OPTIONS,
+                )
+                participant_ids = {p.id for p in (parts_resp.data or [])}
+                if self._tda_id in participant_ids:
+                    logger.info(
+                        "[BandOrchestrator] Found active room %s with TDA (updated_at=%s)",
+                        room.id, room.updated_at,
+                    )
+                    return room.id
+            except Exception as e:
+                logger.warning(
+                    "[BandOrchestrator] Could not check participants for room %s: %s",
+                    room.id, e,
+                )
+                continue
+
+        return None
+
     def create_or_get_session(self, phone_number: str) -> str:
         """Return an existing Band chat room for this patient or create a new one.
 
-        When TDA/TTA IDs are known, they are added as participants immediately
-        after room creation so the room is ready for the multi-agent loop.
+        First checks the in-memory cache, then queries the Band API for an
+        existing room where TDA is already a participant (survives bridge
+        restarts). Only creates a new room when none is found.
 
         Args:
             phone_number: Patient identifier (e.g. "919876543210").
@@ -156,11 +211,20 @@ class BandOrchestrator:
         if phone_number in self._sessions:
             session_id = self._sessions[phone_number]
             logger.info(
-                "[BandOrchestrator] Reusing session %s for %s", session_id, phone_number
+                "[BandOrchestrator] Reusing cached session %s for %s", session_id, phone_number
             )
             return session_id
 
-        logger.info("[BandOrchestrator] Creating Band session for %s", phone_number)
+        # Look for an existing room where the agents are already present
+        existing = self._find_room_with_agents()
+        if existing:
+            self._sessions[phone_number] = existing
+            logger.info(
+                "[BandOrchestrator] Reusing existing agent room %s for %s", existing, phone_number
+            )
+            return existing
+
+        logger.info("[BandOrchestrator] Creating new Band session for %s", phone_number)
         try:
             response = self._client.agent_api_chats.create_agent_chat(
                 chat=ChatRoomRequest(),
